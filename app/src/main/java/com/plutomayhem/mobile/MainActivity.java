@@ -1,71 +1,64 @@
 package com.plutomayhem.mobile;
-
-import android.app.*;
-import android.os.*;
-import android.content.*;
-import android.graphics.Color;
-import android.graphics.Typeface;
-import android.hardware.usb.*;
+import android.app.Activity;
+import android.os.Bundle;
+import android.content.Intent;
+import android.graphics.*;
 import android.view.*;
-import android.widget.*;
-import android.text.InputType;
+import android.widget.Toast;
 import java.util.*;
-import java.text.*;
 
 public class MainActivity extends Activity {
- final int BG=0xff101424, PANEL=0xff303956, EDGE=0xff6b7ba1, CYAN=0xff5de8d6, WHITE=0xfff4f6ff;
- LinearLayout root,body; TextView clock; Handler handler=new Handler(); long start=0,elapsed=0; boolean running=false;
- String notes=""; int score=0; Random random=new Random(); int target=0;
- @Override public void onCreate(Bundle b){super.onCreate(b);getWindow().setStatusBarColor(BG);getWindow().setNavigationBarColor(BG);
- notes=getPreferences(0).getString("notes","");home();}
- TextView text(String s,int size,int color){TextView t=new TextView(this);t.setText(s);t.setTextSize(size);t.setTextColor(color);t.setGravity(Gravity.CENTER_VERTICAL);return t;}
- LinearLayout column(){LinearLayout l=new LinearLayout(this);l.setOrientation(1);return l;}
- void frame(String title){root=column();root.setBackgroundColor(BG);root.setPadding(14,10,14,8);setContentView(root);
- LinearLayout top=new LinearLayout(this);top.setGravity(Gravity.CENTER_VERTICAL);root.addView(top);
- TextView back=text("◀",23,CYAN);back.setPadding(4,8,16,8);top.addView(back);back.setOnClickListener(v->home());
- TextView heading=text("MAYHEM  "+title,19,WHITE);heading.setTypeface(Typeface.MONOSPACE,Typeface.BOLD);top.addView(heading,new LinearLayout.LayoutParams(0,-2,1));
- clock=text("",12,CYAN);top.addView(clock);tick();
- View line=new View(this);line.setBackgroundColor(CYAN);root.addView(line,new LinearLayout.LayoutParams(-1,2));
- ScrollView scroll=new ScrollView(this);root.addView(scroll,new LinearLayout.LayoutParams(-1,0,1));body=column();body.setPadding(2,12,2,10);scroll.addView(body);
- TextView foot=text("PORTAPACK  •  PLUTO MOBILE   |   OFFLINE",11,EDGE);foot.setGravity(Gravity.CENTER);root.addView(foot);}
- void tick(){if(clock==null)return;clock.setText(new SimpleDateFormat("HH:mm",Locale.getDefault()).format(new Date()));}
- void label(String s){TextView t=text(s,17,WHITE);t.setPadding(12,14,8,14);body.addView(t);}
- void tile(LinearLayout parent,String icon,String name,Runnable action){TextView b=text(icon+"\n"+name,17,WHITE);b.setTypeface(Typeface.MONOSPACE,Typeface.BOLD);b.setGravity(Gravity.CENTER);
- b.setBackgroundColor(PANEL);LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(0,118,1);p.setMargins(3,3,3,3);parent.addView(b,p);b.setOnClickListener(v->action.run());}
- void row(String i,String a,Runnable ra,String j,String b,Runnable rb){LinearLayout r=new LinearLayout(this);body.addView(r);tile(r,i,a,ra);tile(r,j,b,rb);}
- void button(String name,Runnable r){Button b=new Button(this);b.setText(name);body.addView(b);b.setOnClickListener(v->r.run());}
- EditText input(String hint,String value){EditText e=new EditText(this);e.setHint(hint);e.setText(value);e.setTextColor(WHITE);e.setHintTextColor(EDGE);body.addView(e);return e;}
- void home(){frame("HOME");label("HACKRF MAYHEM  •  ANDROID EDITION");row("↓","Receive",()->sdr("Receive"),"↕","Transceiver",()->sdr("Transceiver"));
- row("↑","Transmit",()->sdr("Transmit"),"⌁","Recon",()->sdr("Recon"));
- row("●","Capture",()->sdr("Capture"),"▶","Replay",()->sdr("Replay"));
- row("⚒","Utilities",()->utilities(),"▣","Games",()->games());
- row("⚙","Settings",()->settings(),"▤","Hardware",()->hardware());
- row("▦","Files",()->files(),"☷","About",()->about());}
- void sdr(String name){frame(name.toUpperCase(Locale.US));label(name+" requires a connected SDR and an implemented IQ transport.");label("Offline menu remains fully available.");button("RETURN HOME",()->home());}
- void utilities(){frame("UTILITIES");row("λ","RF Calculator",()->calculator(),"◷","Stopwatch",()->stopwatch());
- row("✎","Notes",()->notes(),"▤","Device Info",()->deviceInfo());row("▦","Files",()->files(),"◈","Unit Converter",()->converter());}
- void calculator(){frame("RF CALCULATOR");label("Frequency in MHz");EditText e=input("Example: 433.92","433.92");TextView result=text("",18,CYAN);body.addView(result);
- button("CALCULATE",()->{try{double mhz=Double.parseDouble(e.getText().toString().replace(',','.'));if(mhz<=0)throw new Exception();
- double meters=299.792458/mhz;result.setText(String.format(Locale.US,"Wavelength: %.5f m\nQuarter wave: %.2f cm\nHalf wave: %.2f cm",meters,meters*25,meters*50));
- }catch(Exception x){result.setText("Enter a positive frequency.");}});}
- void converter(){frame("CONVERTER");label("Frequency in MHz");EditText e=input("MHz","100");TextView out=text("",18,CYAN);body.addView(out);
- button("CONVERT",()->{try{double v=Double.parseDouble(e.getText().toString().replace(',','.'));out.setText(String.format(Locale.US,"%.0f Hz\n%.3f kHz\n%.6f GHz",v*1e6,v*1e3,v/1e3));}catch(Exception ex){out.setText("Invalid number");}});}
- void notes(){frame("NOTES");EditText e=input("Your offline notes",notes);e.setMinLines(8);e.setGravity(Gravity.TOP);button("SAVE NOTES",()->{notes=e.getText().toString();getPreferences(0).edit().putString("notes",notes).apply();Toast.makeText(this,"Saved on this phone",Toast.LENGTH_SHORT).show();});}
- void stopwatch(){frame("STOPWATCH");TextView display=text("00:00.0",36,CYAN);display.setGravity(Gravity.CENTER);body.addView(display);
- Runnable update=new Runnable(){public void run(){if(!display.isAttachedToWindow())return;long ms=elapsed+(running?SystemClock.elapsedRealtime()-start:0);
- display.setText(String.format(Locale.US,"%02d:%02d.%d",ms/60000,(ms/1000)%60,(ms/100)%10));handler.postDelayed(this,100);}};
- handler.post(update);button("START / PAUSE",()->{if(running){elapsed+=SystemClock.elapsedRealtime()-start;running=false;}else{start=SystemClock.elapsedRealtime();running=true;}});
- button("RESET",()->{running=false;elapsed=0;display.setText("00:00.0");});}
- void deviceInfo(){frame("DEVICE INFO");label("Manufacturer: "+Build.MANUFACTURER);label("Model: "+Build.MODEL);label("Android: "+Build.VERSION.RELEASE);label("SDK: "+Build.VERSION.SDK_INT);label("Board: "+Build.BOARD);}
- void files(){frame("FILES");label("Browse local files using Android's document picker.");button("OPEN FILE PICKER",()->{Intent i=new Intent(Intent.ACTION_OPEN_DOCUMENT);i.setType("*/*");i.addCategory(Intent.CATEGORY_OPENABLE);startActivityForResult(i,42);});}
- @Override protected void onActivityResult(int req,int res,Intent data){super.onActivityResult(req,res,data);if(req==42&&res==RESULT_OK&&data!=null){frame("FILES");label("Selected: "+data.getData());button("OPEN ANOTHER",()->files());}}
- void games(){frame("GAMES");label("GUESS THE NUMBER • 1 TO 9");target=1+random.nextInt(9);score=0;TextView info=text("Score: 0",20,CYAN);body.addView(info);
- for(int i=1;i<=9;i+=3){LinearLayout r=new LinearLayout(this);body.addView(r);for(int j=i;j<i+3;j++){final int n=j;tile(r,"★",""+n,()->{if(n==target){score++;info.setText("Correct! Score: "+score);target=1+random.nextInt(9);}else{info.setText("Try again • Score: "+score);}});}}}
- void settings(){frame("SETTINGS");label("Appearance: Mayhem dark theme");label("Offline mode: always enabled");label("Notes stored locally on device");button("OPEN ANDROID APP SETTINGS",()->{Intent i=new Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS);i.setData(android.net.Uri.parse("package:"+getPackageName()));startActivity(i);});}
- void hardware(){frame("HARDWARE");label("Pluto SDR • USB OTG diagnostics");button("SCAN USB",()->{UsbManager manager=(UsbManager)getSystemService(USB_SERVICE);StringBuilder sb=new StringBuilder();
- for(UsbDevice d:manager.getDeviceList().values())sb.append(String.format(Locale.US,"VID %04X / PID %04X\n%s\n",d.getVendorId(),d.getProductId(),d.getDeviceName()));
- label(sb.length()==0?"No USB devices detected. Check OTG, power and cable.":sb.toString());});
- label("USB detection only. IIO streaming is not implemented.");}
- void about(){frame("ABOUT");label("Pluto Mayhem Mobile 0.2");label("Offline-first Android UI inspired by PortaPack Mayhem.");label("Not affiliated with the Mayhem firmware project.");label("RF features require future hardware integration.");}
- @Override public void onBackPressed(){home();}
+ MayhemView view;
+ @Override public void onCreate(Bundle b){super.onCreate(b);getWindow().getDecorView().setSystemUiVisibility(5894|1024|512);view=new MayhemView();setContentView(view);}
+ @Override public void onBackPressed(){if(view.screen==0)super.onBackPressed();else{view.screen=0;view.invalidate();}}
+ class MayhemView extends View {
+  Canvas c; Paint p=new Paint(3); Random rng=new Random(); int screen=0,selection=0; boolean demo=true;
+  final int BLACK=0xff111523, BORDER=0xffa6b7d6, CYAN=0xff54d7d7, PANEL=0xff626d99, WHITE=0xfff5f6ff;
+  final String[] menu={"ExtAppErr","Receive","Transmit","Transceiver","Recon","Capture","Replay","Looking Glass","Utilities","Games","Settings","Hardware"};
+  final String[] icons={"▣","↓","↑","↕","⌁","●","▶","⌕","⚒","▤","⚙","▣"};
+  float sx,sy; long t0=System.currentTimeMillis(); float[][] waterfall=new float[120][120];
+  MayhemView(){super(MainActivity.this);setLayerType(View.LAYER_TYPE_SOFTWARE,null);setFocusable(true);}
+  void fill(int color,float l,float t,float r,float b){p.setColor(color);p.setStyle(Paint.Style.FILL);c.drawRect(l,t,r,b,p);}
+  void stroke(int color,float l,float t,float r,float b){p.setColor(color);p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(1);c.drawRect(l,t,r,b,p);p.setStyle(Paint.Style.FILL);}
+  void txt(String s,float x,float y,float size,int color,boolean bold){p.setColor(color);p.setTypeface(bold?Typeface.create("monospace",Typeface.BOLD):Typeface.MONOSPACE);p.setTextSize(size);c.drawText(s,x,y,p);}
+  void center(String s,float x,float y,float size,int color){p.setTypeface(Typeface.create("monospace",Typeface.BOLD));p.setTextSize(size);txt(s,x-p.measureText(s)/2,y,size,color,true);}
+  @Override protected void onDraw(Canvas canvas){super.onDraw(canvas);c=canvas;c.drawColor(0xff171c2b);
+    sx=getWidth()/360f;sy=getHeight()/570f;c.save();c.scale(sx,sy);
+    fill(0xff34405f,10,48,350,525);stroke(BORDER,10,48,350,525);
+    fill(BLACK,24,65,279,490);stroke(0xff98aac7,24,65,279,490);
+    fill(0xff171d32,282,65,338,490);stroke(0xff8495b7,282,65,338,490);
+    header();
+    if(screen==0)home();else if(screen==1)waterfall();else if(screen==2)utility();else if(screen==3)games();else if(screen==4)hardware();else if(screen==5)settings();else if(screen==6)files();else placeholder();
+    sideButtons();txt("◉ desktop",26,510,12,WHITE,true);txt(String.format(Locale.US,"%tT",new Date()),220,510,11,WHITE,false);
+    c.restore();if(screen==1)postInvalidateDelayed(90);
+  }
+  void header(){fill(0xff101525,24,65,279,86);txt("HACKRF MAYHEM",28,76,12,WHITE,true);txt("PORTAPACK",28,83,6,WHITE,true);
+   txt("◉ ☾ ♜ ↑ ≋ ♫ ▣",149,79,13,0xff76e4b2,true);fill(0xff2ebf37,259,67,17+259,84);txt("OK",260,79,8,BLACK,true);}
+  void home(){for(int i=0;i<12;i++){int row=i/2,col=i%2;float l=26+col*126,t=89+row*65;fill(i==selection?0xffd4d9e5:PANEL,l,t,l+125,t+64);stroke(0xff202943,l,t,l+125,t+64);
+   center(icons[i],l+62,t+24,21,i==selection?0xff30a8a6:0xff4be3b9);
+   center(menu[i],l+62,t+47,menu[i].length()>11?9:11,i==selection?BLACK:WHITE);}}
+  void sideButtons(){for(int i=0;i<5;i++){float y=95+i*77;fill(i==0?0xff2a3451:0xff7b88b6,292,y,328,y+52);stroke(0xffa6b7d6,292,y,328,y+52);
+    center(new String[]{"▲","◀","OK","▶","▼"}[i],310,y+31,14,WHITE);}}
+  void waterfall(){txt("RX DEMO  433.920 MHz",30,104,12,CYAN,true);txt("Sample:12k5  Format:C16",30,120,9,WHITE,false);
+    fill(0xff1b2442,30,127,273,145);txt("1k       |       4k",38,140,10,WHITE,false);
+    for(int y=0;y<120;y++)for(int x=0;x<120;x++){float v=waterfall[y][x];int col=Color.rgb((int)(12+v*65),(int)(32+v*115),(int)(65+v*170));fill(col,30+x*2,148+y*2,32+x*2,150+y*2);}
+    for(int y=119;y>0;y--)System.arraycopy(waterfall[y-1],0,waterfall[y],0,120);
+    for(int x=0;x<120;x++){float signal=(float)Math.exp(-Math.pow((x-62)/6f,2))*0.8f;waterfall[0][x]=Math.min(1,rng.nextFloat()*.22f+signal);}
+    txt("DEMO — NO SDR DATA",42,409,13,0xffffff72,true);txt("Offline visual preview",35,430,11,WHITE,false);
+    txt("◀ Back        ▶ Menu",34,466,11,CYAN,false);}
+  void utility(){txt("UTILITIES",38,113,20,CYAN,true);String[] a={"RF wavelength calculator","Frequency converter","Stopwatch","Notes","Files / document picker","Device information"};for(int i=0;i<a.length;i++){fill(PANEL,31,131+i*49,272,173+i*49);txt(a[i],38,158+i*49,12,WHITE,false);}}
+  void games(){txt("GAMES",40,116,21,CYAN,true);txt("NUMBER GUESS",39,153,14,WHITE,true);txt("Tap to roll a number 1–9",39,190,11,WHITE,false);txt("Your roll: "+(1+rng.nextInt(9)),45,250,22,CYAN,true);}
+  void hardware(){txt("HARDWARE",39,115,20,CYAN,true);txt("Pluto SDR: optional",39,160,13,WHITE,false);txt("USB connection not required",39,185,10,CYAN,false);txt("Offline UI active",39,210,11,WHITE,false);}
+  void settings(){txt("SETTINGS",39,115,20,CYAN,true);txt("Theme: PortaPack classic",39,160,12,WHITE,false);txt("Offline mode: enabled",39,188,12,WHITE,false);}
+  void files(){txt("FILES",39,115,20,CYAN,true);txt("Tap to open Android files",39,160,11,WHITE,false);}
+  void placeholder(){txt("SDR REQUIRED",39,115,20,CYAN,true);txt("Connect Pluto for RF features.",39,160,11,WHITE,false);txt("Offline menus still work.",39,185,11,WHITE,false);}
+  @Override public boolean onTouchEvent(android.view.MotionEvent e){if(e.getAction()!=1)return true;float x=e.getX()/sx,y=e.getY()/sy;
+    if(x>285&&x<340){int b=(int)((y-95)/77);if(b==0)selection=(selection+10)%12;else if(b==4)selection=(selection+2)%12;else if(b==2)activate(selection);else if(b==1){screen=0;}else if(b==3){screen=1;}invalidate();return true;}
+    if(screen==0&&x>25&&x<278&&y>=89&&y<479){int row=(int)((y-89)/65),col=x<152?0:1;selection=Math.min(11,row*2+col);activate(selection);}
+    else if(screen==2&&y>131&&y<425){int index=(int)((y-131)/49);if(index==4)openFiles();else if(index>=0&&index<6)Toast.makeText(MainActivity.this,"Utility: "+index+" — available in v0.2",Toast.LENGTH_SHORT).show();}
+    else if(screen==6)openFiles();else if(screen==1&&y>445)screen=0;else if(screen==3)invalidate();
+    invalidate();return true;}
+  void openFiles(){Intent i=new Intent(Intent.ACTION_OPEN_DOCUMENT);i.setType("*/*");i.addCategory(Intent.CATEGORY_OPENABLE);startActivityForResult(i,42);}
+  void activate(int n){if(n==8)screen=2;else if(n==9)screen=3;else if(n==10)screen=5;else if(n==11)screen=4;else if(n==7||n==1)screen=1;else if(n==0)screen=6;else screen=7;invalidate();}
+ }
 }
