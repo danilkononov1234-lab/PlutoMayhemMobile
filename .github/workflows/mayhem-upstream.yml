@@ -1,0 +1,33 @@
+name: Verify Mayhem upstream sources
+on:
+  workflow_dispatch:
+  push:
+    branches: [mayhem-android-phase1]
+    paths:
+      - '.github/workflows/mayhem-upstream.yml'
+      - 'mayhem-android/UPSTREAM_PORT_PLAN.md'
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch original Linux port
+        run: git clone --depth 1 https://github.com/CARDZE-ROSTRUM-git/cardze-mayhem-port.git linux-port
+      - name: Fetch matching Mayhem firmware revision
+        run: |
+          git clone https://github.com/portapack-mayhem/mayhem-firmware.git firmware-upstream
+          git -C firmware-upstream checkout 77798cb09f227de5c58dea48899ddb7448b44a07
+          test -f firmware-upstream/firmware/application/ui_navigation.cpp
+          test -f linux-port/platform/src/lcd_sdl.cpp
+          test -f linux-port/platform/src/sdr_pluto.cpp
+      - name: Package source snapshot for porting
+        run: |
+          mkdir -p source-snapshot
+          cp -a linux-port/platform linux-port/cmake linux-port/CMakeLists.txt source-snapshot/
+          cp -a firmware-upstream/firmware source-snapshot/
+          find source-snapshot -name .git -prune -exec rm -rf {} +
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mayhem-source-snapshot
+          path: source-snapshot/
+          retention-days: 7
