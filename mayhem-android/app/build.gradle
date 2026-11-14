@@ -1,0 +1,3 @@
+plugins { id 'com.android.application' }
+android { namespace 'org.mayhem.port'; compileSdk 35
+ defaultConfig { applicationId 'org.mayhem.port'; minSdk 26; targetSdk 28; versionCode 1; versionName '0.1-scaffold' } }
