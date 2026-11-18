@@ -34,6 +34,8 @@ jobs:
             mingw-w64-ucrt-x86_64-SDL2_image
             mingw-w64-ucrt-x86_64-rtl-sdr
             mingw-w64-ucrt-x86_64-libiio
+            mingw-w64-ucrt-x86_64-binutils
+            file
       - name: Fetch pinned upstream Mayhem firmware
         working-directory: extracted/cardze-mayhem-port-main
         run: |
@@ -50,8 +52,7 @@ jobs:
       - name: Package
         working-directory: extracted/cardze-mayhem-port-main
         run: |
-          cp build/mayhem-desktop.exe .
-          bash ./package-windows.sh
+          python ../../tools/package_windows.py
       - name: Upload EXE and DLLs
         uses: actions/upload-artifact@v4
         with:
