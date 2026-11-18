@@ -66,7 +66,29 @@ public class UsbDiagnosticsActivity extends Activity {
                 status.append(String.format(Locale.US,"\n  EP 0x%02X type=%d",ep.getAddress(),ep.getType()));
             }
         }
-        status.append("\nRX/TX disabled until USB IIO transport is implemented and verified.");
+        // Validate that Android can claim the USB bulk interface, without sending
+        // undocumented commands or accidentally transmitting RF.
+        UsbInterface candidate = null;
+        for (int i=0; i<device.getInterfaceCount(); i++) {
+            UsbInterface iface = device.getInterface(i);
+            if (iface.getInterfaceClass() != UsbConstants.USB_CLASS_CDC_DATA) continue;
+            boolean hasIn = false, hasOut = false;
+            for (int j=0; j<iface.getEndpointCount(); j++) {
+                UsbEndpoint ep = iface.getEndpoint(j);
+                if (ep.getType() != UsbConstants.USB_ENDPOINT_XFER_BULK) continue;
+                if (ep.getDirection() == UsbConstants.USB_DIR_IN) hasIn = true;
+                if (ep.getDirection() == UsbConstants.USB_DIR_OUT) hasOut = true;
+            }
+            if (hasIn && hasOut) { candidate = iface; break; }
+        }
+        if (candidate != null) {
+            boolean claimed = connection.claimInterface(candidate, false);
+            status.append("\\nCDC data interface " + candidate.getId() + " claim: " + (claimed ? "OK" : "FAILED"));
+            if (claimed) connection.releaseInterface(candidate);
+        } else {
+            status.append("\\nNo CDC bulk data interface found");
+        }
+        status.append("\\nThis is a USB access test only. IIO RX/TX transport is not implemented.");
     }
     @Override protected void onDestroy() {
         if (connection != null) connection.close();
