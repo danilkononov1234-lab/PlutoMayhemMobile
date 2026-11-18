@@ -39,7 +39,19 @@ public class UsbDiagnosticsActivity extends Activity {
         probe.setText("PROBE USB IIO CANDIDATE");
         probe.setOnClickListener(v -> probeIioCandidate());
         layout.addView(probe);
-        layout.addView(status);
+        Button copy = new Button(this);
+        copy.setText("COPY USB LOG");
+        copy.setOnClickListener(v -> {
+            ClipboardManager clipboard = (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
+            clipboard.setPrimaryClip(ClipData.newPlainText("Pluto USB diagnostics", status.getText()));
+            Toast.makeText(this, "USB log copied", Toast.LENGTH_SHORT).show();
+        });
+        layout.addView(copy);
+        ScrollView scroll = new ScrollView(this);
+        scroll.setFillViewport(false);
+        scroll.addView(status);
+        layout.addView(scroll, new LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f));
         setContentView(layout);
         registerReceiver(permissionReceiver, new IntentFilter(PERMISSION));
         scan();
