@@ -13,6 +13,7 @@ public class UsbDiagnosticsActivity extends Activity {
     private UsbManager manager;
     private TextView status;
     private UsbDeviceConnection connection;
+    private UsbDevice connectedDevice;
     private final BroadcastReceiver permissionReceiver = new BroadcastReceiver() {
         @Override public void onReceive(Context context, Intent intent) {
             if (PERMISSION.equals(intent.getAction())) {
@@ -34,6 +35,10 @@ public class UsbDiagnosticsActivity extends Activity {
         scan.setText("SCAN USB / CONNECT");
         scan.setOnClickListener(v -> scan());
         layout.addView(scan);
+        Button probe = new Button(this);
+        probe.setText("PROBE USB IIO CANDIDATE");
+        probe.setOnClickListener(v -> probeIioCandidate());
+        layout.addView(probe);
         layout.addView(status);
         setContentView(layout);
         registerReceiver(permissionReceiver, new IntentFilter(PERMISSION));
@@ -55,6 +60,7 @@ public class UsbDiagnosticsActivity extends Activity {
     }
     private void open(UsbDevice device) {
         if (connection != null) connection.close();
+        connectedDevice = device;
         connection = manager.openDevice(device);
         if (connection == null) { status.append("\nCould not open USB device"); return; }
         status.append("\nUSB device opened, fd=" + connection.getFileDescriptor());
@@ -89,6 +95,36 @@ public class UsbDiagnosticsActivity extends Activity {
             status.append("\nNo CDC bulk data interface found");
         }
         status.append("\nUSB bulk interface claim verified. Next: identify the IIO control/data transport. RX/TX not enabled.");
+    }
+    private void probeIioCandidate() {
+        if (connection == null || connectedDevice == null) {
+            status.append("\nConnect PlutoSDR first.");
+            return;
+        }
+        // The Pluto composite USB device may expose a separate IIO function.
+        // Probe descriptors and claim candidates only; no RF commands are sent.
+        status.append("\n--- USB interface probe (read-only) ---");
+        byte[] raw = connection.getRawDescriptors();
+        status.append("\nRaw USB descriptors: " + (raw == null ? "unavailable" : raw.length + " bytes"));
+        for (int i = 0; i < connectedDevice.getInterfaceCount(); i++) {
+            UsbInterface iface = connectedDevice.getInterface(i);
+            int bulkIn = 0, bulkOut = 0;
+            for (int j = 0; j < iface.getEndpointCount(); j++) {
+                UsbEndpoint ep = iface.getEndpoint(j);
+                if (ep.getType() != UsbConstants.USB_ENDPOINT_XFER_BULK) continue;
+                if (ep.getDirection() == UsbConstants.USB_DIR_IN) bulkIn++;
+                else bulkOut++;
+            }
+            status.append("\nInterface " + iface.getId() + ": class=" + iface.getInterfaceClass()
+                + " subclass=" + iface.getInterfaceSubclass()
+                + " protocol=" + iface.getInterfaceProtocol()
+                + " bulk IN=" + bulkIn + " OUT=" + bulkOut);
+            if (bulkIn == 0 || bulkOut == 0) continue;
+            boolean ok = connection.claimInterface(iface, false);
+            status.append(" claim=" + (ok ? "OK" : "FAILED"));
+            if (ok) connection.releaseInterface(iface);
+        }
+        status.append("\nNo IIO protocol commands sent; RX/TX remain disabled.");
     }
     @Override protected void onDestroy() {
         if (connection != null) connection.close();
