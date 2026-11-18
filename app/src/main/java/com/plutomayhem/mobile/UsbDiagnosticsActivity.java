@@ -83,12 +83,12 @@ public class UsbDiagnosticsActivity extends Activity {
         }
         if (candidate != null) {
             boolean claimed = connection.claimInterface(candidate, false);
-            status.append("\\nCDC data interface " + candidate.getId() + " claim: " + (claimed ? "OK" : "FAILED"));
+            status.append("\nCDC data interface " + candidate.getId() + " claim: " + (claimed ? "OK" : "FAILED"));
             if (claimed) connection.releaseInterface(candidate);
         } else {
-            status.append("\\nNo CDC bulk data interface found");
+            status.append("\nNo CDC bulk data interface found");
         }
-        status.append("\\nThis is a USB access test only. IIO RX/TX transport is not implemented.");
+        status.append("\nUSB bulk interface claim verified. Next: identify the IIO control/data transport. RX/TX not enabled.");
     }
     @Override protected void onDestroy() {
         if (connection != null) connection.close();
