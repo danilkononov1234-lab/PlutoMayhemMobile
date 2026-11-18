@@ -76,6 +76,6 @@ public class MainActivity extends Activity {
     else if(screen==6)openFiles();else if(screen==1&&y>445)screen=0;else if(screen==3)invalidate();
     invalidate();return true;}
   void openFiles(){Intent i=new Intent(Intent.ACTION_OPEN_DOCUMENT);i.setType("*/*");i.addCategory(Intent.CATEGORY_OPENABLE);startActivityForResult(i,42);}
-  void activate(int n){if(n==8)screen=2;else if(n==9)screen=3;else if(n==10)screen=5;else if(n==11)screen=4;else if(n==7||n==1)screen=1;else if(n==0)screen=6;else screen=7;invalidate();}
+  void activate(int n){if(n==8)screen=2;else if(n==9)screen=3;else if(n==10)screen=5;else if(n==11){startActivity(new Intent(MainActivity.this, UsbDiagnosticsActivity.class));screen=4;}else if(n==7||n==1)screen=1;else if(n==0)screen=6;else screen=7;invalidate();}
  }
 }
