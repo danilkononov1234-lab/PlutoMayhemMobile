@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Collect transitive UCRT64 DLL dependencies without executing the EXE."""
-import pathlib, re, shutil, subprocess, sys
+import os, pathlib, re, shutil, subprocess, sys
 exe = pathlib.Path("build/mayhem-desktop.exe")
 if not exe.is_file():
     sys.exit("Missing build/mayhem-desktop.exe")
@@ -11,7 +11,14 @@ if "PE32+" not in file_info or "x86-64" not in file_info:
 dest = pathlib.Path("dist/Mayhem Desktop")
 dest.mkdir(parents=True, exist_ok=True)
 shutil.copy2(exe, dest / exe.name)
-search = pathlib.Path("/ucrt64/bin")
+# Python on Windows does not interpret MSYS2 /ucrt64 as a real filesystem root.
+# Resolve the MSYS2 prefix to a native Windows path using cygpath.
+prefix = os.environ.get("MINGW_PREFIX", "/ucrt64")
+converted = subprocess.run(["cygpath", "-w", prefix], capture_output=True, text=True, check=True).stdout.strip()
+search = pathlib.Path(converted) / "bin"
+print("DLL search directory:", search, "exists:", search.is_dir())
+if not search.is_dir():
+    sys.exit("MSYS2 UCRT64 bin directory missing: " + str(search))
 system = {"KERNEL32.DLL","USER32.DLL","GDI32.DLL","ADVAPI32.DLL","SHELL32.DLL","OLE32.DLL","OLEAUT32.DLL","WS2_32.DLL","MSVCRT.DLL","UCRTBASE.DLL","COMDLG32.DLL","COMCTL32.DLL","SHLWAPI.DLL","IMM32.DLL","VERSION.DLL","WINMM.DLL","SETUPAPI.DLL","CRYPT32.DLL","BCRYPT.DLL","NTDLL.DLL","RPCRT4.DLL","IPHLPAPI.DLL","DWMAPI.DLL","OPENGL32.DLL","DNSAPI.DLL","WINHTTP.DLL","SECUR32.DLL","WLDAP32.DLL"}
 pending = [exe]
 seen = set()
