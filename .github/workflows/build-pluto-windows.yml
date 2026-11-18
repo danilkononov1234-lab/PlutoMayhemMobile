@@ -49,6 +49,29 @@ jobs:
       - name: Compile
         working-directory: extracted/cardze-mayhem-port-main
         run: cmake --build build -j"$(nproc)"
+      - name: Validate Windows executable loader
+        shell: pwsh
+        working-directory: extracted/cardze-mayhem-port-main
+        run: |
+          $exe = (Resolve-Path "build/mayhem-desktop.exe").Path
+          $bytes = [System.IO.File]::ReadAllBytes($exe)
+          if ($bytes.Length -lt 1024 -or $bytes[0] -ne 0x4D -or $bytes[1] -ne 0x5A) { throw "Missing MZ header" }
+          $peOffset = [BitConverter]::ToInt32($bytes, 0x3C)
+          if ($peOffset -lt 64 -or $peOffset + 26 -ge $bytes.Length) { throw "Invalid PE offset" }
+          if ([Text.Encoding]::ASCII.GetString($bytes, $peOffset, 4) -ne "PE`0`0") { throw "Missing PE signature" }
+          $machine = [BitConverter]::ToUInt16($bytes, $peOffset + 4)
+          $magic = [BitConverter]::ToUInt16($bytes, $peOffset + 24)
+          Write-Host ("Machine: 0x{0:X4}; Optional header: 0x{1:X4}; bytes: {2}" -f $machine, $magic, $bytes.Length)
+          if ($machine -ne 0x8664 -or $magic -ne 0x20B) { throw "Not Windows x64 PE32+" }
+          try {
+            $p = Start-Process -FilePath $exe -WorkingDirectory (Split-Path $exe) -PassThru -ErrorAction Stop
+            Start-Sleep -Seconds 3
+            $p.Refresh()
+            if (!$p.HasExited) { Stop-Process -Id $p.Id -Force; Write-Host "Windows loader accepted executable (process started)." }
+            else { Write-Host "Process exited with code $($p.ExitCode)"; if ($p.ExitCode -eq -1073741701) { throw "Bad EXE format (0xC000007B)" } }
+          } catch {
+            throw "Windows could not launch compiled EXE: $($_.Exception.Message)"
+          }
       - name: Package
         working-directory: extracted/cardze-mayhem-port-main
         run: |
