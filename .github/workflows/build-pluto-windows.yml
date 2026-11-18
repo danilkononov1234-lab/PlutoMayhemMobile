@@ -49,6 +49,18 @@ jobs:
       - name: Compile
         working-directory: extracted/cardze-mayhem-port-main
         run: cmake --build build -j"$(nproc)"
+      - name: Inspect PE section layout and linker
+        working-directory: extracted/cardze-mayhem-port-main
+        run: |
+          echo "Compiler:"
+          command -v c++ && c++ --version | head -2
+          echo "PE headers:"
+          objdump -f build/mayhem-desktop.exe
+          objdump -h build/mayhem-desktop.exe
+          echo "Link command:"
+          if test -f build/build.ninja; then grep -A 12 -m 1 'mayhem-desktop.exe:' build/build.ninja || true; fi
+          echo "PE summary:"
+          python -c "import struct,pathlib; b=pathlib.Path('build/mayhem-desktop.exe').read_bytes(); o=struct.unpack_from('<I',b,0x3c)[0]; n=struct.unpack_from('<H',b,o+6)[0]; print('PE sections:',n); print('PE signature:',repr(b[o:o+4])); print('Section count exceeds traditional 96-section loader limit:',n>96)"
       - name: Validate Windows executable loader
         shell: pwsh
         working-directory: extracted/cardze-mayhem-port-main
