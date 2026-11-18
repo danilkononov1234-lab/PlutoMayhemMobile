@@ -1,0 +1,60 @@
+name: Build Pluto Mayhem Windows EXE
+on:
+  push:
+    branches: [pluto-mayhem-windows]
+  workflow_dispatch:
+
+jobs:
+  windows-x64:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Extract uploaded sources
+        shell: pwsh
+        run: |
+          $zip = "cardze-mayhem-port-windows.zip"
+          if (!(Test-Path $zip)) { throw "Missing $zip in branch" }
+          Expand-Archive -LiteralPath $zip -DestinationPath extracted -Force
+          if (!(Test-Path "extracted/cardze-mayhem-port-main/CMakeLists.txt")) { throw "Expected project directory missing" }
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: true
+          install: >-
+            git make
+            mingw-w64-ucrt-x86_64-gcc
+            mingw-w64-ucrt-x86_64-cmake
+            mingw-w64-ucrt-x86_64-ninja
+            mingw-w64-ucrt-x86_64-pkgconf
+            mingw-w64-ucrt-x86_64-python
+            mingw-w64-ucrt-x86_64-SDL2
+            mingw-w64-ucrt-x86_64-SDL2_image
+            mingw-w64-ucrt-x86_64-rtl-sdr
+            mingw-w64-ucrt-x86_64-libiio
+      - name: Fetch pinned upstream Mayhem firmware
+        working-directory: extracted/cardze-mayhem-port-main
+        run: |
+          git config --global core.longpaths true
+          git clone https://github.com/portapack-mayhem/mayhem-firmware.git third_party/mayhem-firmware
+          git -C third_party/mayhem-firmware checkout 77798cb09f227de5c58dea48899ddb7448b44a07
+          git -C third_party/mayhem-firmware submodule update --init --recursive
+      - name: Configure
+        working-directory: extracted/cardze-mayhem-port-main
+        run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+      - name: Compile
+        working-directory: extracted/cardze-mayhem-port-main
+        run: cmake --build build -j"$(nproc)"
+      - name: Package
+        working-directory: extracted/cardze-mayhem-port-main
+        run: |
+          cp build/mayhem-desktop.exe .
+          bash ./package-windows.sh
+      - name: Upload EXE and DLLs
+        uses: actions/upload-artifact@v4
+        with:
+          name: mayhem-desktop-windows-x64
+          path: extracted/cardze-mayhem-port-main/dist/Mayhem Desktop/
+          if-no-files-found: error
